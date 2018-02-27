@@ -1,9 +1,11 @@
 import argparse
 import os
+import time
 import torch
 import torch.nn as nn
 import numpy as np
 
+import torch.backends.cudnn as cudnn
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 from torch.autograd import Variable
@@ -41,7 +43,7 @@ def oracle_measure(pred_list, target):
 	comp_list = [pred_list[:,i].eq(target).float().unsqueeze(1) for i in range(pred_list.size(1))]
 	#err_list = [100.0 * (1. - torch.mean(comp)) for comp in comp_list]
 	# ensemble top-1 error rate
-	comp_oracle = torch.cat(comp_list, 1).sum(1) > 0
+	comp_oracle = torch.cat(comp_list, 1).data.sum(1) > 0
 	oracle_err = 100.0 * (1. - torch.mean(comp_oracle.float()))
 	return oracle_err
 
@@ -59,13 +61,14 @@ def top1_measure(pred_list, target):
 		pred = pred_list[0] if pred is None else pred + pred_list[i]
 	v, k = torch.max(pred,1)
 	comp_top1 = k.eq(target)
-	top1_err = 100. * (1. - torch.mean(comp_top1.float()))
+	top1_err = 100. * (1. - torch.mean(comp_top1.data.float()))
 	return top1_err
 
 def train_epoch(model, criterion, optimizer, train_loader, epoch):
 	model.train()
 	losses = []
 
+	end = time.time()
 	for ib, (data, target) in enumerate(train_loader):
 		data, target = Variable(data), Variable(target)
 		if use_cuda:
@@ -84,12 +87,13 @@ def train_epoch(model, criterion, optimizer, train_loader, epoch):
 		optimizer.step()
 		losses.append(total_loss.data[0])
 
-		oracle_acc = 1. - oracle_measure(min_indices, target)
-		top1_acc = 1. - top1_measure(outputs, target)
-
+		oracle_acc = 100. - oracle_measure(min_indices, target)
+		top1_acc = 100. - top1_measure(outputs, target)
+		batch_time = time.time() - end
+		end = time.time()
 		if ib % 1 == 0:
-			print('Epoch {0}/{1}, iter {2}, loss {:.4f}, oracle_acc {:.4f}, top1_acc {:.4f}'.format(epoch, cfg.max_epoch, ib,\
-																								 losses[-1], oracle_acc, top1_acc))
+			print('Epoch {}/{}, iter {}, batch_time {:.4f}, loss {:.4f}, oracle_acc {:.4f}, top1_acc {:.4f}'.format(epoch, cfg.max_epoch, ib,\
+																								batch_time, losses[-1], oracle_acc, top1_acc))
 
 
 def validate_epoch(model, criterion,  val_loader, epoch):
@@ -97,6 +101,7 @@ def validate_epoch(model, criterion,  val_loader, epoch):
 	losses = []
 	total_top1_acc, total_oracle_acc = .0, .0
 	total_number = 0
+	end = time.time()
 	for ib, (data, target) in enumerate(val_loader):
 		data, target = Variable(data), Variable(target)
 		if use_cuda:
@@ -120,8 +125,9 @@ def validate_epoch(model, criterion,  val_loader, epoch):
 
 	total_oracle_acc /= total_number
 	total_top1_acc /= total_number
-	print('Epoch {0}/{1}, iter {2}, loss {:.4f}, oracle_acc {:.4f}, top1_acc {:.4f}'.format(epoch, cfg.max_epoch, ib,\
-																				  np.mean(losses), total_oracle_acc, total_top1_acc))
+	batch_time = time.time() - end
+	print('Epoch {}/{}, iter {}, batch_time {:.4f}, loss {:.4f}, oracle_acc {:.4f}, top1_acc {:.4f}'.format(epoch, cfg.max_epoch, ib,\
+																				  batch_time, np.mean(losses), total_oracle_acc, total_top1_acc))
 	return total_oracle_acc
 
 
