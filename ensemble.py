@@ -22,8 +22,9 @@ parser.add_argument('--weight-decay', type=float, default=1e-4, help='weight dec
 parser.add_argument('--cuda', action='store_true', help='enables cuda')
 parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
 parser.add_argument('--manualSeed', type=int, help='manual seed')
-
+parser.add_argument('--debug', action='store_true', help='debug mode use cifar10 dataset')
 cfg = parser.parse_args()
+
 
 use_cuda = cfg.cuda and torch.cuda.is_available()
 
@@ -86,7 +87,7 @@ def train_epoch(model, criterion, optimizer, train_loader, epoch):
 		oracle_acc = 1. - oracle_measure(min_indices, target)
 		top1_acc = 1. - top1_measure(outputs, target)
 
-		if ib % 100 == 0:
+		if ib % 10 == 0:
 			print('Epoch {}/{}, iter {}, loss {:.4f}, oracle_acc {:.4f}, top1_acc {:.4f}'.format(epoch, cfg.max_epoch,\
 																								 losses[-1], oracle_acc, top1_acc))
 
@@ -127,7 +128,11 @@ def validate_epoch(model, criterion,  val_loader, epoch):
 def main():
 	global best_oracle_acc
 	# define model
-	model = MCLImageNet(name='wrn', nmodel=cfg.model_num)
+	if not cfg.debug:
+		model = MCLImageNet(name='wrn', nmodel=cfg.model_num)
+	else:
+		model = MCLImageNet(name='wrn', nmodel=cfg.model_num, nclasses=10)
+		
 	criterion = nn.CrossEntropyLoss()
 	if use_cuda:
 		model.cuda()
@@ -137,30 +142,49 @@ def main():
 								weight_decay=cfg.weight_decay)
 	scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[40, 80], gamma=0.1)
 	# dataloader
-	traindir = os.join(cfg.dataroot, 'train')
-	valdir   = os.join(cfg.dataroot, 'val')
-	normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-									 std=[0.229, 0.224, 0.225])
-	train_set = dset.ImageFolder(root=traindir,
-							    transform=transforms.Compose([
-								   transforms.RandomResizedCrop(224),
-								   transforms.RandomHorizontalFlip(),
-								   transforms.ToTensor(),
-								   normalize,
-							   ]))
-	train_loader = torch.utils.data.DataLoader(
-		train_set, batch_size=cfg.batch_size, shuffle=True, num_workers=4, pin_memory=True)
+	if not cfg.debug:
+		traindir = os.path.join(cfg.dataroot, 'train')
+		valdir   = os.path.join(cfg.dataroot, 'val')
+		normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+										 std=[0.229, 0.224, 0.225])
+		train_set = dset.ImageFolder(root=traindir,
+								    transform=transforms.Compose([
+									   transforms.RandomResizedCrop(224),
+									   transforms.RandomHorizontalFlip(),
+									   transforms.ToTensor(),
+									   normalize,
+								   ]))
+		train_loader = torch.utils.data.DataLoader(
+			train_set, batch_size=cfg.batch_size, shuffle=True, num_workers=4, pin_memory=True)
 
-	val_loader = torch.utils.data.DataLoader(
-		dset.ImageFolder(valdir, transforms.Compose([
-			transforms.Resize(256),
-			transforms.CenterCrop(224),
-			transforms.ToTensor(),
-			normalize,
-			])),
-		batch_size=cfg.batch_size, shuffle=False,
-		num_workers=4, pin_memory=True)
+		val_loader = torch.utils.data.DataLoader(
+			dset.ImageFolder(valdir, transforms.Compose([
+				transforms.Resize(256),
+				transforms.CenterCrop(224),
+				transforms.ToTensor(),
+				normalize,
+				])),
+			batch_size=cfg.batch_size, shuffle=False,
+			num_workers=4, pin_memory=True)
+	else:
+		# debug mode use cifar10
+		normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+										 std=[0.229, 0.224, 0.225])
+		train_set = dset.CIFAR10(root='./data', train=True, download=True, transform=transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(),
+			normalize]))
+		train_loader = torch.utils.data.DataLoader(
+			train_set, batch_size=cfg.batch_size, shuffle=True, num_workers=4, pin_memory=True)
 
+		val_loader = torch.utils.data.DataLoader(
+			dset.CIFAR10('./data',train=False, transform=transforms.Compose([
+				transforms.Resize(256),
+				transforms.CenterCrop(224),
+				transforms.ToTensor(),
+				normalize,
+				])),
+			batch_size=cfg.batch_size, shuffle=False,
+			num_workers=4, pin_memory=True)
+	print('Begin Training ')
 	for epoch in range(cfg.max_epoch):
 		scheduler.step()
 		train_epoch(model, criterion, optimizer, train_loader, epoch)
@@ -184,3 +208,8 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
 	torch.save(state, filename)
 	if is_best:
 		shutil.copyfile(filename, 'model_best.pth.tar')
+
+
+
+if __name__=='__main__':
+	main()
