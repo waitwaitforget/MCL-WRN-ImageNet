@@ -14,9 +14,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--dataroot', required=True, help='path to dataset')
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
 parser.add_argument('--batch-size', type=int, default=128, help='input batch size')
-parser.add_argument('--k', type=int, default=1, help='overlapping, default is 1')
+parser.add_argument('-k', type=int, default=1, help='overlapping, default is 1')
+parser.add_argument('--model-num', type=int, default=3, help='number of model, default is 3')
 parser.add_argument('--max-epoch', type=int, default=100)
-parser.add_argument('--lr', type=float, default=0.0002, help='learning rate, default=0.0002')
+parser.add_argument('--lr', type=float, default=0.1, help='learning rate, default=0.0002')
 parser.add_argument('--weight-decay', type=float, default=1e-4, help='weight decay for optimizer, default=1e-4')
 parser.add_argument('--cuda', action='store_true', help='enables cuda')
 parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
@@ -126,7 +127,7 @@ def validate_epoch(model, criterion,  val_loader, epoch):
 def main():
 	global best_oracle_acc
 	# define model
-	model = MCLImageNet(name='wrn', nmodel=3)
+	model = MCLImageNet(name='wrn', nmodel=cfg.model_num)
 	criterion = nn.CrossEntropyLoss()
 	if use_cuda:
 		model.cuda()
