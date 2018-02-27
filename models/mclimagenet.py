@@ -14,3 +14,4 @@ class MCLImageNet(nn.Module):
 
 	def forward(self, x):
 		outputs = [self.model[i](x) for i in range(self.nmodel)]
+                return outputs
