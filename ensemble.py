@@ -87,8 +87,8 @@ def train_epoch(model, criterion, optimizer, train_loader, epoch):
 		oracle_acc = 1. - oracle_measure(min_indices, target)
 		top1_acc = 1. - top1_measure(outputs, target)
 
-		if ib % 10 == 0:
-			print('Epoch {}/{}, iter {}, loss {:.4f}, oracle_acc {:.4f}, top1_acc {:.4f}'.format(epoch, cfg.max_epoch,\
+		if ib % 1 == 0:
+			print('Epoch {0}/{1}, iter {2}, loss {:.4f}, oracle_acc {:.4f}, top1_acc {:.4f}'.format(epoch, cfg.max_epoch, ib,\
 																								 losses[-1], oracle_acc, top1_acc))
 
 
@@ -120,8 +120,8 @@ def validate_epoch(model, criterion,  val_loader, epoch):
 
 	total_oracle_acc /= total_number
 	total_top1_acc /= total_number
-	print('Epoch {}/{}, iter {}, loss {:.4f}, oracle_acc {:.4f}, top1_acc {:.4f}'.format(epoch, cfg.max_epoch,\
-																								 np.mean(losses), total_oracle_acc, total_top1_acc))
+	print('Epoch {0}/{1}, iter {2}, loss {:.4f}, oracle_acc {:.4f}, top1_acc {:.4f}'.format(epoch, cfg.max_epoch, ib,\
+																				  np.mean(losses), total_oracle_acc, total_top1_acc))
 	return total_oracle_acc
 
 
