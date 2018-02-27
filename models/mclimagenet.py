@@ -1,3 +1,4 @@
+import torch.nn as nn
 from wideresnet import WideResNet
 
 class MCLImageNet(nn.Module):
