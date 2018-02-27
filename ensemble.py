@@ -7,31 +7,24 @@ import numpy as np
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 from torch.autograd import Variable
-from mclimagenet import MCLImageNet
+from models.mclimagenet import MCLImageNet
 
 # hyperparameters
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset', required=True, help='cifar10 | lsun | imagenet | folder | lfw | fake')
 parser.add_argument('--dataroot', required=True, help='path to dataset')
-parser.add_argument('--workers', type=int, help='number of data loading workers', default=2)
-parser.add_argument('--batchSize', type=int, default=64, help='input batch size')
-parser.add_argument('--imageSize', type=int, default=64, help='the height / width of the input image to network')
-parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
-parser.add_argument('--ngf', type=int, default=64)
-parser.add_argument('--ndf', type=int, default=64)
-parser.add_argument('--niter', type=int, default=25, help='number of epochs to train for')
+parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
+parser.add_argument('--batch-size', type=int, default=128, help='input batch size')
+parser.add_argument('--k', type=int, default=1, help='overlapping, default is 1')
+parser.add_argument('--max-epoch', type=int, default=100)
 parser.add_argument('--lr', type=float, default=0.0002, help='learning rate, default=0.0002')
-parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
+parser.add_argument('--weight-decay', type=float, default=1e-4, help='weight decay for optimizer, default=1e-4')
 parser.add_argument('--cuda', action='store_true', help='enables cuda')
-parser.add_argument('--ngpu', type=int, default=1, help='number of GPUs to use')
-parser.add_argument('--netG', default='', help="path to netG (to continue training)")
-parser.add_argument('--netD', default='', help="path to netD (to continue training)")
-parser.add_argument('--outf', default='.', help='folder to output images and model checkpoints')
+parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
 parser.add_argument('--manualSeed', type=int, help='manual seed')
 
 cfg = parser.parse_args()
 
-use_cuda = torch.cuda.is_available()
+use_cuda = cfg.cuda and torch.cuda.is_available()
 
 
 def oracle_measure(pred_list, target):
@@ -81,7 +74,7 @@ def train_epoch(model, criterion, optimizer, train_loader, epoch):
 		# for mcl
 		loss_list = [criterion(output, target) for output in outputs]
 		loss_list = torch.cat(loss_list, 1) # formulate a loss matrix
-		min_values, min_indices = torch.topk(loss_list, k=cfg['k'], largest=False)
+		min_values, min_indices = torch.topk(loss_list, k=cfg.k, largest=False)
 		total_loss = torch.sum(min_values) / data.size(0)
 
 		optimizer.zero_grad()
@@ -93,7 +86,7 @@ def train_epoch(model, criterion, optimizer, train_loader, epoch):
 		top1_acc = 1. - top1_measure(outputs, target)
 
 		if ib % 100 == 0:
-			print('Epoch {}/{}, iter {}, loss {:.4f}, oracle_acc {:.4f}, top1_acc {:.4f}'.format(epoch, cfg['max_epoch'],\
+			print('Epoch {}/{}, iter {}, loss {:.4f}, oracle_acc {:.4f}, top1_acc {:.4f}'.format(epoch, cfg.max_epoch,\
 																								 losses[-1], oracle_acc, top1_acc))
 
 
@@ -127,30 +120,33 @@ def validate_epoch(model, criterion,  val_loader, epoch):
 	total_top1_acc /= total_number
 	print('Epoch {}/{}, iter {}, loss {:.4f}, oracle_acc {:.4f}, top1_acc {:.4f}'.format(epoch, cfg['max_epoch'],\
 																								 np.mean(losses), total_oracle_acc, total_top1_acc))
+	return total_oracle_acc
 
 
 def main():
+	global best_oracle_acc
 	# define model
 	model = MCLImageNet(name='wrn', nmodel=3)
 	criterion = nn.CrossEntropyLoss()
-	if cfg.use_cuda:
+	if use_cuda:
 		model.cuda()
 		criterion.cuda()
 	optimizer = torch.optim.SGD(model.parameters(), cfg.lr,
-                                momentum=cfg.momentum,
-                                weight_decay=cfg.weight_decay)
+								momentum=cfg.momentum,
+								weight_decay=cfg.weight_decay)
+	scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[40, 80], gamma=0.1)
 	# dataloader
 	traindir = os.join(cfg.dataroot, 'train')
 	valdir   = os.join(cfg.dataroot, 'val')
 	normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
+									 std=[0.229, 0.224, 0.225])
 	train_set = dset.ImageFolder(root=traindir,
-                               transform=transforms.Compose([
-                                   transforms.RandomResizedCrop(224),
-                                   transforms.RandomHorizontalFlip(),
-                                   transforms.ToTensor(),
-                                   normalize,
-                               ]))
+							    transform=transforms.Compose([
+								   transforms.RandomResizedCrop(224),
+								   transforms.RandomHorizontalFlip(),
+								   transforms.ToTensor(),
+								   normalize,
+							   ]))
 	train_loader = torch.utils.data.DataLoader(
 		train_set, batch_size=cfg.batch_size, shuffle=True, num_workers=4, pin_memory=True)
 
@@ -165,7 +161,25 @@ def main():
 		num_workers=4, pin_memory=True)
 
 	for epoch in range(cfg.max_epoch):
+		scheduler.step()
 		train_epoch(model, criterion, optimizer, train_loader, epoch)
 
-		validate_epoch(model, criterion, val_loader, epoch)
+		oracle_acc = validate_epoch(model, criterion, val_loader, epoch)
 
+		is_best = oracle_acc > best_oracle_acc
+		best_oracle_acc = max(oracle_acc, best_oracle_acc)
+		
+		if epoch % 5 == 0:
+			save_checkpoint({
+				'epoch': epoch + 1,
+				'arch' : 'wrn-18-2',
+				'state_dict': model.state_dict(),
+				'best_oracle_acc': best_oracle_acc,
+				'optimizer': optimizer.state_dict(),
+				}, is_best)
+
+
+def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
+	torch.save(state, filename)
+	if is_best:
+		shutil.copyfile(filename, 'model_best.pth.tar')
