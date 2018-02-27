@@ -74,7 +74,7 @@ def train_epoch(model, criterion, optimizer, train_loader, epoch):
 		outputs = model(data)
 
 		# for mcl
-		loss_list = [criterion(output, target) for output in outputs]
+		loss_list = [criterion(output, target).unsqueeze(1) for output in outputs]
 		loss_list = torch.cat(loss_list, 1) # formulate a loss matrix
 		min_values, min_indices = torch.topk(loss_list, k=cfg.k, largest=False)
 		total_loss = torch.sum(min_values) / data.size(0)
@@ -103,9 +103,9 @@ def validate_epoch(model, criterion,  val_loader, epoch):
 			data, target = data.cuda(), target.cuda()
 		outputs = model(data)
 		# for mcl
-		loss_list = [criterion(output, target) for output in outputs]
+		loss_list = [criterion(output, target).unsqueeze(1) for output in outputs]
 		loss_list = torch.cat(loss_list, 1) # formulate a loss matrix
-		min_values, min_indices = torch.topk(loss_list, k=cfg['k'], largest=False)
+		min_values, min_indices = torch.topk(loss_list, k=cfg.k, largest=False)
 		total_loss = torch.sum(min_values) / data.size(0)
 
 		losses.append(total_loss.data[0])
@@ -120,7 +120,7 @@ def validate_epoch(model, criterion,  val_loader, epoch):
 
 	total_oracle_acc /= total_number
 	total_top1_acc /= total_number
-	print('Epoch {}/{}, iter {}, loss {:.4f}, oracle_acc {:.4f}, top1_acc {:.4f}'.format(epoch, cfg['max_epoch'],\
+	print('Epoch {}/{}, iter {}, loss {:.4f}, oracle_acc {:.4f}, top1_acc {:.4f}'.format(epoch, cfg.max_epoch,\
 																								 np.mean(losses), total_oracle_acc, total_top1_acc))
 	return total_oracle_acc
 
