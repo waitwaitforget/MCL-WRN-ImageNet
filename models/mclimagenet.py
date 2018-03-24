@@ -10,10 +10,10 @@ class MCLImageNet(nn.Module):
 		self.nmodel = nmodel
 
 		if name == 'wrn':
-			self.model = nn.ModuleList([WideResNet(18, nclasses, widefactor, droprate) for _ in range(nmodel)])
+			self.nets = nn.ModuleList([WideResNet(18, nclasses, widefactor, droprate) for _ in range(nmodel)])
 		else:
 			raise NotImplementedError
 
 	def forward(self, x):
-		outputs = [self.model[i](x) for i in range(self.nmodel)]
+		outputs = [self.nets[i](x) for i in range(self.nmodel)]
 		return outputs
