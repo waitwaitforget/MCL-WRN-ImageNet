@@ -1,11 +1,13 @@
 import os
 
-os.system('python ensemble_multiprocess.py --dataroot ./data \
+# imagenet data folder: /home/ktian/data/ILSVRC2012/
+os.system('python ensemble_multiprocess.py --dataroot /home/ktian/data/ILSVRC2012/ \
                                            --batch-size 128 \
                                            -k 1 \
-                                           --arch test \
+                                           --arch resnet18 \
                                            --model-num 3 \
-                                           --exp-name test_mnist_mcl \
+                                           --exp-name test_imagenet_mcl \
                                            --debug \
-                                           --gpu 0\
+                                           --gpu 1,2,3 \
+                                           --cuda \
                                            --ensemble mcl')

@@ -32,7 +32,7 @@ def top1_measure(pred_list, target):
     pred = None
     for i in range(len(pred_list)):
         pred = pred_list[0] if pred is None else pred + pred_list[i]
-    res = accuracy(pred, target, topk=(1, 5))
+    res = accuracy(pred / len(pred_list), target, topk=(1, 5))
     return res[0], res[1]
 
 
@@ -86,7 +86,7 @@ def save_checkpoint(state, is_best, exp_name, epoch, filename='checkpoint.pth.ta
     directory = "./runs/%s" % (exp_name)
     if not os.path.exists(directory):
         os.mkdir(directory)
-    filename = os.path.join(directory, 'ckpt_' + str(epoch))
+    filename = os.path.join(directory, 'ckpt_' + str(epoch) + '.pth.tar')
     torch.save(state, filename)
     if is_best:
         shutil.copyfile(filename, directory + '/model_best.pth.tar')
