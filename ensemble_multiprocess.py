@@ -1,7 +1,6 @@
 import argparse
 import os
-import sys
-import shutil
+
 import time
 import torch
 import torch.nn as nn
@@ -43,12 +42,12 @@ cfg = parser.parse_args()
 iterate = 0
 
 use_cuda = cfg.cuda and torch.cuda.is_available()
-device_ids = map(int, cfg.gpu.split(','))
+device_ids = list(map(int, cfg.gpu.split(',')))
 output_device = device_ids[0]
 if use_cuda:
     assert len(device_ids) == cfg.model_num
 
-log = Logging(cfg.exp_name)
+log = Logging('_'.join([cfg.exp_name, cfg.arch, cfg.ensemble]))
 
 
 def train_epoch(model, optimizer, train_loader, epoch):
@@ -152,7 +151,6 @@ def validate_epoch(model, val_loader, epoch):
 
 def main():
     global best_oracle_acc
-    iterate = 1
     # define model
     criterion = nn.CrossEntropyLoss()
 
@@ -230,7 +228,7 @@ def main():
                 'state_dict': model.state_dict(),
                 'best_oracle_acc': best_oracle_acc,
                 'optimizer': optimizer.state_dict(),
-            }, is_best, cfg.exp_name)
+            }, is_best, cfg.exp_name, epoch)
 
         # log to tensorboard
         if cfg.tensorboard > 0:

@@ -5,7 +5,7 @@ os.system('python ensemble_multiprocess.py --dataroot ./data \
                                            -k 1 \
                                            --arch test \
                                            --model-num 3 \
-                                           --exp-name test_mnist \
+                                           --exp-name test_mnist_mcl \
                                            --debug \
                                            --gpu 0\
                                            --ensemble mcl')

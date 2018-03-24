@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torchvision.models as models
-from wideresnet import WideResNet
+from .wideresnet import WideResNet
 import torch.nn.functional as F
 
 

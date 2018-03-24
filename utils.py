@@ -1,4 +1,5 @@
 import os
+import shutil
 import torch
 
 
@@ -56,11 +57,11 @@ class AverageMeter(object):
 
 class Logging(object):
     def __init__(self, logfile):
-        self.logfile = logfile
+        self.logfile = logfile + '.txt'
 
     def update(self, msg):
         msg = msg.strip()
-        with open(self.logfile, 'w+') as f:
+        with open(self.logfile, 'a+') as f:
             f.write(msg + '\n')
 
 
@@ -80,12 +81,12 @@ def accuracy(output, target, topk=(1,)):
     return res
 
 
-def save_checkpoint(state, is_best, exp_name, filename='checkpoint.pth.tar'):
+def save_checkpoint(state, is_best, exp_name, epoch, filename='checkpoint.pth.tar'):
     """Save checkpoint to disk"""
     directory = "./runs/%s" % (exp_name)
     if not os.path.exists(directory):
         os.mkdir(directory)
-    filename = os.path.join(directory, filename)
+    filename = os.path.join(directory, 'ckpt_' + str(epoch))
     torch.save(state, filename)
     if is_best:
         shutil.copyfile(filename, directory + '/model_best.pth.tar')

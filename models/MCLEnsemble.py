@@ -1,5 +1,5 @@
 import torch
-from Ensemble import Ensemble
+from .Ensemble import Ensemble
 
 
 class MCLEnsemble(Ensemble):
