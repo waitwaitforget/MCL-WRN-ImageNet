@@ -1,5 +1,5 @@
+import os
 import torch
-import numpy as np
 
 
 def oracle_measure(pred_list, target):
@@ -13,7 +13,7 @@ def oracle_measure(pred_list, target):
     '''
     pred_list = [pred.max(1)[1] for pred in pred_list]
     comp_list = [pred_list[i].eq(target).float().unsqueeze(1) for i in range(len(pred_list))]
-    #err_list = [100.0 * (1. - torch.mean(comp)) for comp in comp_list]
+    # err_list = [100.0 * (1. - torch.mean(comp)) for comp in comp_list]
     comp_oracle = torch.cat(comp_list, 1).data.sum(1) > 0
     oracle_err = 100.0 * (1. - torch.mean(comp_oracle.float()))
     return oracle_err
